@@ -13,6 +13,8 @@
 <div id="boot">
   <div class="boot-title">J.A.R.V.I.S.</div>
   <pre id="boot-log"></pre>
+  <button id="activate" hidden>ACTIVATE</button>
+  <div class="boot-hint">Click to give Jarvis your microphone. Then just talk.</div>
 </div>
 
 <header>
@@ -59,17 +61,23 @@
       <canvas id="reactor" width="420" height="420"></canvas>
       <div id="state-label">ONLINE</div>
     </div>
+    <div id="caption"></div>
     <div id="transcript"></div>
     <form id="composer" autocomplete="off">
-      <button type="button" id="mic" title="Hold to talk (or press Space when not typing)">
+      <button type="button" id="mic" title="Click to listen">
         <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12z"/></svg>
       </button>
-      <input id="input" placeholder="Speak or type a command…">
+      <input id="input" placeholder="Just talk… or type here if you prefer">
       <button type="submit" id="send">SEND</button>
     </form>
     <div class="toggles">
-      <label><input type="checkbox" id="wake"> Wake word "Jarvis"</label>
-      <label><input type="checkbox" id="speak" checked> Speak replies</label>
+      <label>Listening mode
+        <select id="mode">
+          <option value="always">Always listening</option>
+          <option value="wake">Only when I say "Jarvis"</option>
+        </select>
+      </label>
+      <span>Tap the reactor or press Esc to interrupt</span>
     </div>
   </section>
 

@@ -17,7 +17,7 @@ Your own Jarvis: a British-butler AI that talks, listens, learns about you, and 
 
 | Part | What it does |
 |---|---|
-| **Voice** | Talks in a British male voice. Hold the mic button (or Space) to talk, or turn on the wake word and just say *"Jarvis, …"*. Add an ElevenLabs key for a premium voice. |
+| **Voice (both ways)** | Click **ACTIVATE** once, then just talk. Jarvis is always listening. When you pause, he answers out loud. While he talks, the mic pauses so he doesn't hear himself, then it turns back on. Tap the reactor or press Esc (or say "stop") to cut him off. Switch to *"Only when I say Jarvis"* mode if you want. Typing still works too. Add an ElevenLabs key for a better voice. |
 | **HUD** | Animated arc reactor, live Activity Stream (every search, file, tool call), agent status lights, running operations, memory, comms queue, and built files. |
 | **Research agent** | Searches the web, reads sources, sends back a short cited brief. Runs in the background. |
 | **Engineering agent** | Builds real projects in `./workspace`. Click a file in the Engineering Bay to view it. |
@@ -39,7 +39,7 @@ Everything is stored locally in `data/`.
 ./run.sh            # then open http://127.0.0.1:8000 in Chrome or Edge
 ```
 
-Use Chrome or Edge, because voice input needs them.
+Use Chrome or Edge, because voice input needs them. Wear headphones if you can, so the mic doesn't pick up Jarvis's voice.
 
 ## Optional: texts and calls
 

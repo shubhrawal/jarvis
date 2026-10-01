@@ -34,8 +34,9 @@ async function boot() {
   ];
   const log = $("#boot-log");
   for (const l of lines) { log.textContent += l + "\n"; await sleep(140); }
-  await sleep(300);
-  $("#boot").classList.add("done");
+  await sleep(200);
+  $("#activate").hidden = false;
+  $("#activate").focus();
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -119,27 +120,36 @@ function addMsg(role, text, id, extra = "") {
 }
 const escapeHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+let pending = 0;
 async function send(text) {
   text = text.trim();
   if (!text) return;
   addMsg("user", text);
+  caption("user", text);
   const wait = addMsg("jarvis", "…", null, "thinking");
-  setState("thinking");
+  pending++;
+  if (!speaking) setState("thinking");
   try {
     const res = await (await api("/api/chat", { method: "POST", body: JSON.stringify({ text }) })).json();
     wait.remove();
     addMsg("jarvis", res.reply, res.message_id);
+    pending--;
     speak(res.reply);
   } catch (e) {
     wait.remove();
-    addMsg("jarvis", `My apologies, ${TITLE} — I've hit a fault: \`${e.message}\``, null);
-    setState("idle");
+    pending--;
+    const msg = `My apologies, ${TITLE}. I've hit a fault: ${e.message}`;
+    addMsg("jarvis", msg, null);
+    speak(msg);
   }
 }
 $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#input").value); $("#input").value = ""; };
 
 // ---------- Voice out ----------
-let voice = null, audio = null;
+// Jarvis speaks every reply. While he talks the mic pauses (so he doesn't hear himself),
+// then it opens again on its own. Tap the reactor or press Esc to cut him off.
+let voice = null, audio = null, speaking = false;
+const speakQueue = [];
 function pickVoice() {
   const vs = speechSynthesis.getVoices();
   const prefs = ["Daniel", "Google UK English Male", "Microsoft Ryan", "Arthur", "Oliver", "Microsoft George", "Microsoft Thomas"];
@@ -154,85 +164,130 @@ function speakable(text) {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/https?:\/\/\S+/g, "")
     .replace(/[#*_`>|-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
 }
-async function speak(text) {
-  if (!$("#speak").checked) { setState("idle"); return; }
+function speak(text) {
   const say = speakable(text);
-  if (!say) { setState("idle"); return; }
-  stopSpeaking();
+  if (!say) return;
+  speakQueue.push(say);
+  if (!speaking) nextSpeech();
+}
+async function nextSpeech() {
+  const say = speakQueue.shift();
+  if (!say) { speaking = false; afterSpeaking(); return; }
+  speaking = true;
+  pauseListening();
   setState("speaking");
+  caption("jarvis", say);
   try {
     const res = await api("/api/tts", { method: "POST", body: JSON.stringify({ text: say }) });
     if (res.status === 200) {
       audio = new Audio(URL.createObjectURL(await res.blob()));
-      audio.onended = () => setState("idle");
+      audio.onended = audio.onerror = () => { audio = null; nextSpeech(); };
       await audio.play();
       return;
     }
-  } catch (_) { /* fall through to browser voice */ }
-  if (!("speechSynthesis" in window)) { setState("idle"); return; }
-  const u = new SpeechSynthesisUtterance(say);
-  if (voice) u.voice = voice;
-  u.lang = "en-GB"; u.rate = 1.02; u.pitch = 0.88;
-  u.onend = u.onerror = () => setState("idle");
-  speechSynthesis.speak(u);
+  } catch (_) { /* fall back to the browser voice */ }
+  if (!("speechSynthesis" in window)) return nextSpeech();
+  // Chrome sometimes never fires onend, so a watchdog makes sure the mic always comes back.
+  let finished = false;
+  const done = () => { if (!finished) { finished = true; clearTimeout(watchdog); nextSpeech(); } };
+  const watchdog = setTimeout(done, 4000 + say.length * 90);
+  try {
+    const u = new SpeechSynthesisUtterance(say);
+    if (voice) u.voice = voice;
+    u.lang = "en-GB"; u.rate = 1.02; u.pitch = 0.88;
+    u.onend = u.onerror = done;
+    speechSynthesis.speak(u);
+  } catch (_) { done(); }
 }
-function stopSpeaking() {
-  if (audio) { audio.pause(); audio = null; }
+function interrupt() {
+  speakQueue.length = 0;
+  if (audio) { audio.onended = null; audio.pause(); audio = null; }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
+  if (!speaking) return;
+  speaking = false;
+  afterSpeaking();
 }
+function afterSpeaking() {
+  if (pending > 0) setState("thinking");
+  else setState(micOn ? "listening" : "idle");
+  resumeListening();
+}
+$("#reactor").onclick = interrupt;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") interrupt(); });
 
 // ---------- Voice in ----------
+// Always listening: talk normally, pause, and Jarvis answers. Optional wake-word mode
+// only reacts to sentences that contain "Jarvis".
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, wakeMode = false, pushing = false;
-function makeRec() {
-  const r = new SR();
-  r.lang = "en-GB"; r.interimResults = true; r.continuous = wakeMode;
-  let finalText = "";
-  r.onresult = (e) => {
+let rec = null, micOn = false;
+function startRec() {
+  if (!SR || !micOn || speaking || rec) return;
+  rec = new SR();
+  rec.lang = "en-GB"; rec.continuous = true; rec.interimResults = true;
+  rec.onresult = (e) => {
     let interim = "";
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const s = e.results[i][0].transcript;
-      if (e.results[i].isFinal) {
-        if (wakeMode) {
-          const m = s.match(/\bjarvis\b[,.!?]?\s*(.*)/i);
-          if (m) { stopSpeaking(); if (m[1].trim()) send(m[1]); else { setState("listening"); speak(`Yes, ${TITLE}?`); } }
-        } else finalText += s;
-      } else interim += s;
+      if (e.results[i].isFinal) heard(s);
+      else interim += s;
     }
-    if (!wakeMode) $("#input").value = finalText + interim;
+    if (interim) caption("user", interim, true);
   };
-  r.onend = () => {
-    $("#mic").classList.remove("live");
-    if (!wakeMode) {
-      if (finalText.trim()) { send(finalText); $("#input").value = ""; }
-      else if (state === "listening") setState("idle");
-    } else if ($("#wake").checked) setTimeout(() => { try { r.start(); } catch (_) {} }, 300);
+  rec.onend = () => { rec = null; if (micOn && !speaking) setTimeout(startRec, 250); };
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      setMic(false);
+      caption("jarvis", "I can't access the microphone. Please allow it in the browser and tap the mic.");
+    }
   };
-  r.onerror = (e) => { if (e.error === "not-allowed") { $("#wake").checked = false; wakeMode = false; } };
-  return r;
+  try { rec.start(); } catch (_) { rec = null; }
 }
-function startPTT() {
-  if (!SR) return alert("Speech recognition needs Chrome or Edge.");
-  if (pushing) return;
-  pushing = true; stopSpeaking();
-  if (wakeMode && rec) { wakeMode = false; rec.abort(); }
-  rec = makeRec(); rec.start();
-  $("#mic").classList.add("live"); setState("listening");
+function pauseListening() { if (rec) { const r = rec; rec = null; r.onend = null; r.abort(); } }
+function resumeListening() { startRec(); }
+function heard(text) {
+  text = text.trim();
+  if (!text) return;
+  if ($("#mode").value === "wake") {
+    const m = text.match(/\bjarvis\b[,.!?]?\s*(.*)/i);
+    if (!m) return caption("user", text + "  (ignored – say “Jarvis” first)", true);
+    text = m[1].trim();
+    if (!text) return speak(`Yes, ${TITLE}?`);
+  } else {
+    text = text.replace(/^(hey |ok |okay )?jarvis[,.!?]?\s*/i, "") || text;
+  }
+  if (/^(stop|quiet|shut up|never ?mind|cancel)\.?$/i.test(text)) return interrupt();
+  send(text);
 }
-function stopPTT() {
-  if (!pushing) return;
-  pushing = false; rec && rec.stop();
-  if ($("#wake").checked) setTimeout(enableWake, 800);
+function setMic(on) {
+  micOn = on && !!SR;
+  $("#mic").classList.toggle("live", micOn);
+  $("#mic").title = micOn ? "Listening – click to mute" : "Muted – click to listen";
+  if (micOn) { startRec(); if (!speaking && !pending) setState("listening"); }
+  else { pauseListening(); if (!speaking && !pending) setState("idle"); }
 }
-function enableWake() {
-  if (!SR) { $("#wake").checked = false; return alert("Speech recognition needs Chrome or Edge."); }
-  wakeMode = true; rec = makeRec(); try { rec.start(); } catch (_) {}
+$("#mic").onclick = () => setMic(!micOn);
+
+// ---------- Live caption ----------
+let captionTimer = null;
+function caption(who, text, interim = false) {
+  const el = $("#caption");
+  el.className = `${who} ${interim ? "interim" : ""}`;
+  el.textContent = text;
+  clearTimeout(captionTimer);
+  if (who === "user" && !interim) captionTimer = setTimeout(() => (el.textContent = ""), 4000);
 }
-$("#mic").addEventListener("pointerdown", startPTT);
-["pointerup", "pointerleave"].forEach((e) => $("#mic").addEventListener(e, stopPTT));
-document.addEventListener("keydown", (e) => { if (e.code === "Space" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA" && !e.repeat) { e.preventDefault(); startPTT(); } });
-document.addEventListener("keyup", (e) => { if (e.code === "Space" && pushing) stopPTT(); });
-$("#wake").onchange = (e) => { if (e.target.checked) enableWake(); else { wakeMode = false; rec && rec.abort(); } };
+
+// ---------- Activate (browsers need one click before using mic + audio) ----------
+function activate() {
+  $("#boot").classList.add("done");
+  if (!SR) {
+    caption("jarvis", "Voice input needs Chrome or Edge. You can still type.");
+  }
+  const h = new Date().getHours();
+  const greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  setMic(true);
+  speak(`${greet}, ${TITLE}. All systems are online. I'm listening.`);
+}
 
 // ---------- Activity stream ----------
 const AGENT_NAMES = { core: "core", research: "research", code: "engineer", comms: "comms", memory: "memory", router: "router" };
@@ -417,4 +472,5 @@ const firstSentence = (s) => (speakable(s).match(/^.*?[.!?](\s|$)/) || [""])[0];
 // ---------- Go ----------
 drawReactor();
 boot();
+$("#activate").onclick = activate;
 refresh(true).then(connect).catch((e) => addMsg("jarvis", `Unable to reach the core: ${e.message}`));

@@ -211,3 +211,22 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); }
   .panel.grow { min-height: 260px; }
   header { flex-wrap: wrap; padding: 10px 16px; }
 }
+
+/* voice-first */
+#activate {
+  font: 700 16px "Orbitron"; letter-spacing: .35em; color: var(--cyan); background: rgba(63, 208, 255, .08);
+  border: 1px solid var(--cyan); padding: 16px 40px; cursor: pointer; box-shadow: var(--glow); animation: pulse 1.6s infinite;
+}
+#activate:hover { background: rgba(63, 208, 255, .2); }
+.boot-hint { font-size: 13px; color: var(--muted); }
+#reactor { cursor: pointer; }
+#caption {
+  min-height: 2.8em; max-width: 760px; width: 100%; text-align: center; font-size: 19px; line-height: 1.4;
+  color: var(--text); padding: 0 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+#caption.user { color: var(--green); }
+#caption.user::before { content: "YOU › "; font: 700 11px "Orbitron"; letter-spacing: .15em; }
+#caption.interim { opacity: .65; font-style: italic; }
+#caption.jarvis { color: var(--cyan); text-shadow: var(--glow); }
+.toggles { align-items: center; flex-wrap: wrap; justify-content: center; }
+.toggles select { background: #01070d; color: var(--text); border: 1px solid var(--cyan-dim); font: 13px "Rajdhani"; padding: 2px 6px; margin-left: 6px; }
