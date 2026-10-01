@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="boot">
+  <div class="boot-title">J.A.R.V.I.S.</div>
+  <pre id="boot-log"></pre>
+</div>
+
+<header>
+  <div class="logo">J.A.R.V.I.S.<span>Just A Rather Very Intelligent System</span></div>
+  <div class="pills">
+    <span class="pill" id="pill-link"><i></i>LINK</span>
+    <span class="pill" id="pill-voice"><i></i>VOICE</span>
+    <span class="pill" id="pill-comms"><i></i>COMMS</span>
+    <span class="pill" id="pill-exec"><i></i>EXEC</span>
+  </div>
+  <div class="clock"><div id="clock-time">--:--:--</div><div id="clock-date"></div></div>
+</header>
+
+<main>
+  <!-- LEFT -->
+  <section class="col">
+    <div class="panel">
+      <h2>Agent Matrix</h2>
+      <div id="agents">
+        <div class="agent" data-agent="core"><div class="dot"></div><div><b>Core</b><small>Conversation &amp; orchestration</small><em>Standing by</em></div></div>
+        <div class="agent" data-agent="research"><div class="dot"></div><div><b>Research</b><small>Web search · source reading</small><em>Standing by</em></div></div>
+        <div class="agent" data-agent="code"><div class="dot"></div><div><b>Engineering</b><small>Builds code in ./workspace</small><em>Standing by</em></div></div>
+        <div class="agent" data-agent="comms"><div class="dot"></div><div><b>Comms</b><small>Texts &amp; phone calls</small><em>Standing by</em></div></div>
+        <div class="agent" data-agent="memory"><div class="dot"></div><div><b>Memory</b><small>Learning your preferences</small><em>Standing by</em></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Neural Router <span class="tag" id="router-n">0 samples</span></h2>
+      <p class="hint">Online classifier predicting which division you need. It retrains after every conversation.</p>
+      <div id="router-bars"></div>
+      <div class="sub" id="router-last"></div>
+    </div>
+
+    <div class="panel grow">
+      <h2>Operations</h2>
+      <div id="tasks" class="list"><div class="empty">No operations running.</div></div>
+    </div>
+  </section>
+
+  <!-- CENTER -->
+  <section class="col center">
+    <div class="reactor-wrap">
+      <canvas id="reactor" width="420" height="420"></canvas>
+      <div id="state-label">ONLINE</div>
+    </div>
+    <div id="transcript"></div>
+    <form id="composer" autocomplete="off">
+      <button type="button" id="mic" title="Hold to talk (or press Space when not typing)">
+        <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12z"/></svg>
+      </button>
+      <input id="input" placeholder="Speak or type a command…">
+      <button type="submit" id="send">SEND</button>
+    </form>
+    <div class="toggles">
+      <label><input type="checkbox" id="wake"> Wake word "Jarvis"</label>
+      <label><input type="checkbox" id="speak" checked> Speak replies</label>
+    </div>
+  </section>
+
+  <!-- RIGHT -->
+  <section class="col">
+    <div class="panel grow">
+      <h2>Activity Stream <span class="tag live">LIVE</span></h2>
+      <div id="activity" class="log"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Memory Core <span class="tag" id="mem-n">0</span></h2>
+      <div id="style-learned" class="sub"></div>
+      <div id="prefs" class="list scroll"><div class="empty">Nothing learned yet. Talk to me.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Comms Queue <span class="tag" id="comms-mode"></span></h2>
+      <div id="comms" class="list scroll"><div class="empty">No texts or calls.</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Engineering Bay</h2>
+      <div id="files" class="list scroll"><div class="empty">Workspace is empty.</div></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="viewer">
+  <div class="viewer-head"><span id="viewer-title"></span><button onclick="viewer.close()">✕</button></div>
+  <pre id="viewer-body"></pre>
+</dialog>
+
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
